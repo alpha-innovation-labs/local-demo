@@ -56,10 +56,10 @@ just delete     # Remove all PM2 processes
 
 - Tailwind CSS v4 requires no `tailwind.config.js` — configuration is done inline via CSS.
 - Two servers run simultaneously via PM2 (see `ecosystem.json`):
-  - **Dev** on `http://localhost:3000` — queries agent-sight CLI (real data).
+  - **Dev** on `http://localhost:3000` — queries agent-sight CLI (real data, file-cached 5 min).
   - **Prod** on `http://localhost:3002` — returns 100 deterministic stub sessions (no CLI dependency).
 - Switch behavior via `NODE_ENV` (set in `ecosystem.json`):
-  - `"development"` → `fetchSessions()` calls the agent-sight CLI.
+  - `"development"` → `fetchSessions()` calls the agent-sight CLI (file-cached 5 min).
   - `"production"` → `fetchSessions()` returns stub data from `src/lib/stubSessions.ts`.
 - Press **⌘K** (or **Ctrl+K** on Windows/Linux) to open the command menu.
 - The landing page displays live session data from `/api/sessions?full=true` (replaces stub user table).
@@ -117,6 +117,7 @@ curl 'http://localhost:3000/api/sessions?source=invalid'
 - CLI: `maxBuffer: 50MB` on `execSync`; ANSI codes stripped before `JSON.parse`
 - Handles both CLI formats: `--full` returns `{ conversations: [...] }`; non-full returns `{ sessionId: [msgs] }`
 - Results flattened and sorted by `updatedAt` descending
+- **Caching**: File-based stale-while-revalidate in `.cache/sessions/` (5 min TTL). On cache HIT: returns the cached file immediately, fires CLI refresh via `queueMicrotask` (non-blocking). On MISS: runs CLI query, writes result to cache. Response header `X-Cache` is `HIT` or `MISS`.
 
 ## Session Table (live data)
 
@@ -139,8 +140,8 @@ The landing page DataTable now fetches live session data from `/api/sessions?ful
 - Loading state shows "Loading sessions…"; errors show "Error: {message}"
 - `src/lib/agentSight.ts` branches on `NODE_ENV` (CLI vs stub)
 - `src/lib/stubSessions.ts` generates 100 deterministic sessions
-- `src/lib/sessionCache.ts` provides file-based caching (5 min TTL)
-- `src/app/api/sessions/route.ts` delegates to `fetchSessions()`
+- `src/lib/sessionCache.ts` provides file-based caching (5 min TTL, stored in `.cache/sessions/`)
+- `src/app/api/sessions/route.ts` delegates to `fetchSessions()`; HIT branch returns cached file immediately and fires CLI refresh via `queueMicrotask` (non-blocking)
 
 ## Command Menu (cmdk)
 
