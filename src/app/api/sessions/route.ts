@@ -31,16 +31,20 @@ export async function GET(request: NextRequest) {
 
   // Return stale cache immediately if available.
   if (cached) {
+    console.log(`[sessionCache] HIT key=${cacheKey}`);
     const status = cached.data.error ? 400 : 200;
-    // Fire-and-forget background refresh.
-    const fresh = fetchSessions(params);
-    writeCache(cacheKey, fresh);
+    // Fire background refresh (does NOT block the response).
+    queueMicrotask(() => {
+      const fresh = fetchSessions(params);
+      writeCache(cacheKey, fresh);
+    });
     const response = NextResponse.json(cached.data, { status });
     response.headers.set("X-Cache", "HIT");
     return response;
   }
 
   // No cache — fetch fresh data.
+  console.log(`[sessionCache] MISS key=${cacheKey}`);
   const result = fetchSessions(params);
   writeCache(cacheKey, result);
 
