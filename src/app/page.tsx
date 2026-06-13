@@ -68,7 +68,7 @@ export default function Home() {
     <div className="container mx-auto py-10">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold tracking-tight">Sessions</h2>
-        <CommandMenu />
+        <CommandMenu data={data} />
       </div>
       {loading ? (
         <p className="text-muted-foreground">Loading sessions…</p>

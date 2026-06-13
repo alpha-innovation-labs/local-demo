@@ -1,9 +1,24 @@
 {
   "apps": [
     {
-      "name": "demo",
-      "script": "npm",
+      "name": "demo-dev",
+      "script": "pnpm",
       "args": "run dev",
+      "cwd": "/Users/alpha/workspace/alpha-innovation-labs/demo",
+      "instances": 1,
+      "exec_mode": "fork",
+      "autorestart": true,
+      "watch": true,
+      "max_memory_restart": "1G",
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "3000"
+      }
+    },
+    {
+      "name": "demo-prod",
+      "script": "pnpm",
+      "args": "start",
       "cwd": "/Users/alpha/workspace/alpha-innovation-labs/demo",
       "instances": 1,
       "exec_mode": "fork",
@@ -11,7 +26,8 @@
       "watch": false,
       "max_memory_restart": "1G",
       "env": {
-        "NODE_ENV": "development"
+        "NODE_ENV": "production",
+        "PORT": "3002"
       }
     }
   ]

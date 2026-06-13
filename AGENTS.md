@@ -22,7 +22,7 @@ demo/
 │   ├── page.tsx            # Landing page (default template)
 │   ├── globals.css         # Global styles (Tailwind imports)
 │   └── favicon.ico
-├── ecosystem.json          # PM2 config (starts `npm run dev`)
+├── ecosystem.json          # PM2 config (starts `pnpm run dev`)
 ├── justfile                # Main justfile (imports recipes)
 ├── justfiles/
 │   └── development/
@@ -49,7 +49,7 @@ just delete     # Remove the PM2 process
 - The server runs on `http://localhost:3000`.
 - Press **⌘K** (or **Ctrl+K** on Windows/Linux) to open the command menu.
 - The landing page displays live session data from `/api/sessions?full=true` (replaces stub user table).
-- The command menu shows all table users, searchable by name, email, role, or balance.
+- The command menu shows live session data from the DataTable — both share the same data source.
 
 ## Sessions API
 
@@ -122,20 +122,22 @@ The landing page DataTable now fetches live session data from `/api/sessions?ful
 
 An accessible, keyboard-driven command palette integrated into the landing page. Press **⌘K** (or **Ctrl+K**) or click the **⌘K Quick Search** button to open.
 
-### Files Added
+### Files Modified
 
-| File | Purpose |
+| File | Change |
 |------|--------|
-| `src/app/command-menu.tsx` | `CommandMenu` component — `Command.Dialog` with `Command.Input` and `Command.List` showing all 12 users |
-| `src/app/page.tsx` | Updated to import and render `CommandMenu` in the page header |
+| `src/app/command-menu.tsx` | Removed hardcoded `STUB_USERS`; accepts `{ data: SessionRow[] }` prop; renders live sessions with title, source, directory, message count, and relative time |
+| `src/app/page.tsx` | Passes `data={data}` to `CommandMenu` — shares the same `SessionRow[]` as the DataTable |
+| `ecosystem.json` | Changed `npm` → `pnpm` for both dev and prod scripts (fixes server startup) |
 
 ### Features
 
 - **Keyboard shortcut**: `Cmd+K` / `Ctrl+K` toggles the menu
-- **Searchable**: Filters by name (default), email, role, status, and balance via `keywords` prop
-- **Grouped**: All users rendered in a single `Command.Group`
+- **Searchable**: Filters by title (default), source, directory, and relative time via `keywords` prop
+- **Grouped**: All sessions rendered in a single `Command.Group` with heading "Sessions"
 - **Accessible**: Labelled dialog with ARIA attributes, keyboard navigation (arrow keys, Enter, Escape)
-- **Footer**: Shows keyboard shortcuts and result count
+- **Footer**: Shows keyboard shortcuts and live result count
+- **Live sync**: CommandMenu and DataTable always show identical data from `/api/sessions`
 
 ### Usage
 
@@ -147,6 +149,7 @@ curl 'http://localhost:3000'
 ### Key Implementation Details
 
 - Uses `Command.Dialog` (Radix UI Dialog composition) for overlay/portal behavior
-- Each `Command.Item` gets a unique `value` (name) and `keywords` (email, role, status, balance) for broad matching
+- Each `Command.Item` gets a unique `value` (session title) and `keywords` (source, directory, relative time) for broad matching
 - `open` state controlled by `useState` + `useEffect` keydown listener
-- Stub user data duplicated from `page.tsx` to avoid prop-drilling; both files share the `User` interface
+- Both DataTable and CommandMenu receive `data` from `page.tsx` — single source of truth, no duplication
+- `relativeTime()` formats ISO timestamps to strings like "2h ago" for display in keywords

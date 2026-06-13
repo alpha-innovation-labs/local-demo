@@ -4,42 +4,63 @@ import * as React from "react"
 import { Command } from "cmdk"
 
 /**
- * User interface matching the table data shape.
+ * Session shape — mirrors the DataTable's data type.
  */
-interface User {
+interface SessionRow {
   id: string
-  name: string
-  email: string
-  role: string
-  status: "Active" | "Inactive" | "Pending"
-  balance: string
+  title: string
+  source: string
+  directory?: string
+  updatedAt: string
+  userMessageCount?: number
 }
 
 /**
- * Stub data sourced from the table — used as command-menu items.
+ * Props for CommandMenu: receives the same session data as the DataTable.
  */
-const STUB_USERS: User[] = [
-  { id: "728ed52f", name: "Alice Johnson", email: "alice@example.com", role: "Admin", status: "Active", balance: "$1,200.00" },
-  { id: "489e1d42", name: "Bob Smith", email: "bob@example.com", role: "Editor", status: "Active", balance: "$850.50" },
-  { id: "a1b2c3d4", name: "Carol White", email: "carol@example.com", role: "Viewer", status: "Inactive", balance: "$0.00" },
-  { id: "e5f6g7h8", name: "David Brown", email: "david@example.com", role: "Editor", status: "Active", balance: "$2,340.75" },
-  { id: "i9j0k1l2", name: "Eva Martinez", email: "eva@example.com", role: "Admin", status: "Active", balance: "$1,890.25" },
-  { id: "m3n4o5p6", name: "Frank Lee", email: "frank@example.com", role: "Viewer", status: "Pending", balance: "$120.00" },
-  { id: "q7r8s9t0", name: "Grace Kim", email: "grace@example.com", role: "Editor", status: "Active", balance: "$670.30" },
-  { id: "u1v2w3x4", name: "Henry Chen", email: "henry@example.com", role: "Viewer", status: "Inactive", balance: "$0.00" },
-  { id: "y5z6a7b8", name: "Iris Nakamura", email: "iris@example.com", role: "Editor", status: "Active", balance: "$1,450.00" },
-  { id: "c9d0e1f2", name: "Jack Thompson", email: "jack@example.com", role: "Viewer", status: "Pending", balance: "$320.00" },
-  { id: "g3h4i5j6", name: "Karen Patel", email: "karen@example.com", role: "Admin", status: "Active", balance: "$2,100.50" },
-  { id: "k7l8m9n0", name: "Leo Garcia", email: "leo@example.com", role: "Editor", status: "Inactive", balance: "$0.00" },
-]
+interface CommandMenuProps {
+  data: SessionRow[]
+}
 
 /**
- * CommandMenu — a ⌘K command palette that surfaces the table's user
+ * Format an ISO timestamp to a relative string (e.g. "2h ago").
+ */
+function relativeTime(iso: string): string {
+  const now = Date.now()
+  const then = new Date(iso).getTime()
+  const diffMs = now - then
+  const diffMin = Math.floor(diffMs / 60000)
+  const diffH = Math.floor(diffMin / 60)
+  const diffD = Math.floor(diffH / 24)
+  if (diffMin < 1) return "just now"
+  if (diffMin < 60) return `${diffMin}m ago`
+  if (diffH < 24) return `${diffH}h ago`
+  return `${diffD}d ago`
+}
+
+/**
+ * Map a source string to a Tailwind badge variant for visual coding.
+ */
+function sourceVariant(source: string): string {
+  switch (source) {
+    case "opencode": return "default"
+    case "claude": return "secondary"
+    case "pi": return "outline"
+    case "nexus": return "destructive"
+    default: return "default"
+  }
+}
+
+/**
+ * CommandMenu — a ⌘K command palette that surfaces the table's session
  * data as searchable, filterable items.
+ *
+ * Receives the same `data` array as the DataTable so both components
+ * always stay in sync.
  *
  * Press ⌘K (or Ctrl+K) to open. Type to filter. Arrow keys to navigate.
  */
-export function CommandMenu() {
+export function CommandMenu({ data }: CommandMenuProps) {
   const [open, setOpen] = React.useState(false)
 
   // Toggle the menu when ⌘K / Ctrl+K is pressed
@@ -79,24 +100,30 @@ export function CommandMenu() {
         <Command.List className="max-h-[380px] overflow-y-auto">
           <Command.Empty>No results found.</Command.Empty>
 
-          <Command.Group heading="Users">
-            {STUB_USERS.map((user) => (
+          <Command.Group heading="Sessions">
+            {data.map((session) => (
               <Command.Item
-                key={user.id}
-                value={user.name}
-                keywords={[user.email, user.role, user.status, user.balance]}
+                key={session.id}
+                value={session.title}
+                keywords={[
+                  session.source,
+                  session.directory ?? "",
+                  relativeTime(session.updatedAt),
+                ]}
                 onSelect={(value) => {
                   setOpen(false)
                 }}
                 className="flex items-center justify-between px-3 py-2 cursor-pointer rounded-md"
               >
                 <div className="flex flex-col">
-                  <span className="font-medium">{user.name}</span>
+                  <span className="font-medium">{session.title}</span>
                   <span className="text-xs text-muted-foreground">
-                    {user.email} · {user.role}
+                    {session.source} · {session.directory ? session.directory : "—"}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground">{user.balance}</span>
+                <span className="text-xs text-muted-foreground">
+                  {session.userMessageCount != null ? `${session.userMessageCount} msgs` : ""}
+                </span>
               </Command.Item>
             ))}
           </Command.Group>
@@ -108,7 +135,7 @@ export function CommandMenu() {
             <span><kbd className="px-1 rounded bg-muted">↵</kbd> Select</span>
             <span><kbd className="px-1 rounded bg-muted">esc</kbd> Close</span>
           </div>
-          <span>{STUB_USERS.length} results</span>
+          <span>{data.length} results</span>
         </div>
       </Command.Dialog>
     </>
