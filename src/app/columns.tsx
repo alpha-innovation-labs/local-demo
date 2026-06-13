@@ -3,7 +3,7 @@
 import { type ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff } from "lucide-react"
+import { ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -15,16 +15,43 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 
-interface User {
+interface SessionRow {
   id: string
-  name: string
-  email: string
-  role: string
-  status: "Active" | "Inactive" | "Pending"
-  balance: string
+  title: string
+  source: string
+  directory?: string
+  updatedAt: string
+  userMessageCount?: number
 }
 
-export const columns: ColumnDef<User>[] = [
+/**
+ * Format an ISO timestamp to a relative string (e.g. "2h ago").
+ */
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+/**
+ * Color-code a source name into a Badge variant.
+ */
+function sourceBadgeVariant(source: string): "default" | "secondary" | "destructive" | "outline" {
+  switch (source) {
+    case "opencode": return "default"
+    case "claude": return "secondary"
+    case "pi": return "outline"
+    case "nexus": return "destructive"
+    default: return "outline"
+  }
+}
+
+export const columns: ColumnDef<SessionRow>[] = [
   {
     id: "select",
     header: ({ table }) => (
@@ -45,74 +72,83 @@ export const columns: ColumnDef<User>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "name",
+    accessorKey: "title",
     header: ({ column }) => {
       return (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Name
+          Title
           <ChevronsUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
     },
-    cell: ({ row }) => <span className="font-medium">{row.getValue("name")}</span>,
+    cell: ({ row }) => (
+      <span className="font-medium truncate block max-w-[240px]" title={row.getValue("title") as string}>
+        {row.getValue("title") as string}
+      </span>
+    ),
   },
   {
-    accessorKey: "email",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Email
-          <ChevronsUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-  },
-  {
-    accessorKey: "role",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Role
-          <ChevronsUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
+    accessorKey: "source",
+    header: "Source",
     cell: ({ row }) => {
-      const status = row.getValue("status") as string
-      const variant =
-        status === "Active"
-          ? "default"
-          : status === "Inactive"
-            ? "destructive"
-            : "secondary"
-      return <Badge variant={variant}>{status}</Badge>
+      const source = row.getValue("source") as string
+      return <Badge variant={sourceBadgeVariant(source)}>{source}</Badge>
     },
   },
   {
-    accessorKey: "balance",
-    header: () => <div className="text-right">Balance</div>,
+    accessorKey: "userMessageCount",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Messages
+          <ChevronsUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
     cell: ({ row }) => {
-      const balance = row.getValue("balance") as string
-      return <div className="text-right font-medium">{balance}</div>
+      const count = row.getValue("userMessageCount") as number | undefined
+      return <Badge variant="outline">{count ?? 0}</Badge>
+    },
+  },
+  {
+    accessorKey: "updatedAt",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Updated
+          <ChevronsUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      )
+    },
+    cell: ({ row }) => {
+      const ts = row.getValue("updatedAt") as string
+      return <span className="text-muted-foreground">{relativeTime(ts)}</span>
+    },
+  },
+  {
+    accessorKey: "directory",
+    header: "Directory",
+    cell: ({ row }) => {
+      const dir = row.getValue("directory") as string | undefined
+      if (!dir) return <span className="text-muted-foreground">—</span>
+      const parts = dir.split("/").filter(Boolean)
+      const display = parts.length > 3 ? `…/${parts.slice(-3).join("/")}` : dir
+      return <span className="text-muted-foreground truncate max-w-[160px] block" title={dir}>{display}</span>
     },
   },
   {
     id: "actions",
     cell: ({ row }) => {
-      const user = row.original
+      const session = row.original
       return (
         <DropdownMenu>
           <DropdownMenuTrigger>
@@ -124,13 +160,12 @@ export const columns: ColumnDef<User>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.id)}
+              onClick={() => navigator.clipboard.writeText(session.id)}
             >
-              Copy user ID
+              Copy ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View user details</DropdownMenuItem>
-            <DropdownMenuItem>Edit user</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => alert(`Session: ${session.id}`)}>View details</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )

@@ -1,39 +1,82 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { columns } from "./columns"
 import { DataTable } from "./data-table"
 import { CommandMenu } from "./command-menu"
 
-interface User {
+interface SessionRow {
   id: string
-  name: string
-  email: string
-  role: string
-  status: "Active" | "Inactive" | "Pending"
-  balance: string
+  title: string
+  source: string
+  directory?: string
+  updatedAt: string
+  userMessageCount?: number
 }
 
-const stubUsers: User[] = [
-  { id: "728ed52f", name: "Alice Johnson", email: "alice@example.com", role: "Admin", status: "Active", balance: "$1,200.00" },
-  { id: "489e1d42", name: "Bob Smith", email: "bob@example.com", role: "Editor", status: "Active", balance: "$850.50" },
-  { id: "a1b2c3d4", name: "Carol White", email: "carol@example.com", role: "Viewer", status: "Inactive", balance: "$0.00" },
-  { id: "e5f6g7h8", name: "David Brown", email: "david@example.com", role: "Editor", status: "Active", balance: "$2,340.75" },
-  { id: "i9j0k1l2", name: "Eva Martinez", email: "eva@example.com", role: "Admin", status: "Active", balance: "$1,890.25" },
-  { id: "m3n4o5p6", name: "Frank Lee", email: "frank@example.com", role: "Viewer", status: "Pending", balance: "$120.00" },
-  { id: "q7r8s9t0", name: "Grace Kim", email: "grace@example.com", role: "Editor", status: "Active", balance: "$670.30" },
-  { id: "u1v2w3x4", name: "Henry Chen", email: "henry@example.com", role: "Viewer", status: "Inactive", balance: "$0.00" },
-  { id: "y5z6a7b8", name: "Iris Nakamura", email: "iris@example.com", role: "Editor", status: "Active", balance: "$1,450.00" },
-  { id: "c9d0e1f2", name: "Jack Thompson", email: "jack@example.com", role: "Viewer", status: "Pending", balance: "$320.00" },
-  { id: "g3h4i5j6", name: "Karen Patel", email: "karen@example.com", role: "Admin", status: "Active", balance: "$2,100.50" },
-  { id: "k7l8m9n0", name: "Leo Garcia", email: "leo@example.com", role: "Editor", status: "Inactive", balance: "$0.00" },
-]
+interface ApiSession {
+  id: string
+  source: string
+  title: string
+  directory?: string
+  createdAt?: string
+  updatedAt?: string
+  userMessageCount?: number
+  messages: Array<{ content: string; createdAt: string; messageId: string }>
+  timestamp: string
+}
+
+interface ApiResponse {
+  sessions: ApiSession[]
+  error?: string
+}
+
+/**
+ * Map raw API session objects into the flat SessionRow shape used by the table.
+ */
+function mapSessions(raw: ApiSession[]): SessionRow[] {
+  return raw.map((s) => ({
+    id: s.id,
+    title: s.title,
+    source: s.source,
+    directory: s.directory,
+    updatedAt: s.updatedAt ?? s.timestamp,
+    userMessageCount: s.userMessageCount,
+  }))
+}
 
 export default function Home() {
+  const [data, setData] = useState<SessionRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch("/api/sessions?full=true")
+      .then((res) => res.json() as Promise<ApiResponse>)
+      .then((body) => {
+        if (body.error) {
+          setError(body.error)
+        } else {
+          setData(mapSessions(body.sessions))
+        }
+      })
+      .catch((err: Error) => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Users</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Sessions</h2>
         <CommandMenu />
       </div>
-      <DataTable columns={columns} data={stubUsers} />
+      {loading ? (
+        <p className="text-muted-foreground">Loading sessions…</p>
+      ) : error ? (
+        <p className="text-destructive">Error: {error}</p>
+      ) : (
+        <DataTable columns={columns} data={data} />
+      )}
     </div>
   )
 }

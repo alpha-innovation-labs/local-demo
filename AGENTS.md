@@ -46,9 +46,9 @@ just delete     # Remove the PM2 process
 ## Notes
 
 - Tailwind CSS v4 requires no `tailwind.config.js` — configuration is done inline via CSS.
-- The default landing page is unmodified from `create-next-app`.
 - The server runs on `http://localhost:3000`.
 - Press **⌘K** (or **Ctrl+K** on Windows/Linux) to open the command menu.
+- The landing page displays live session data from `/api/sessions?full=true` (replaces stub user table).
 - The command menu shows all table users, searchable by name, email, role, or balance.
 
 ## Sessions API
@@ -96,6 +96,27 @@ curl 'http://localhost:3000/api/sessions?source=invalid'
 - Handles both CLI formats: `--full` returns `{ conversations: [...] }`; non-full returns `{ sessionId: [msgs] }`
 - Sources queried in parallel via `.map()` (no explicit `Promise.all` needed — synchronous CLI calls)
 - Results flattened and sorted by `updatedAt` descending
+
+## Session Table (live data)
+
+The landing page DataTable now fetches live session data from `/api/sessions?full=true` on mount (client-side `useEffect`), replacing the previous stub-user table.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/app/page.tsx` | Removed `stubUsers`/`User`; added `SessionRow`, `ApiSession`, `ApiResponse` interfaces; `useState`/`useEffect` fetches `/api/sessions?full=true`; maps `ApiSession[]` → `SessionRow[]`; renders loading/error/DataTable |
+| `src/app/columns.tsx` | Replaced `User` with `SessionRow`; columns: Title (sortable, truncated), Source (color-coded `<Badge>`: opencode=default, claude=secondary, pi=outline, nexus=destructive), Messages (number badge), Updated (relative time), Directory (truncated path), Actions (Copy ID, View details) |
+| `src/app/data-table.tsx` | Filter input changed from "Filter emails..." → "Filter titles...", bound to `title` column |
+
+### Key Implementation Details
+
+- `SessionRow` is a flat shape: `{ id, title, source, directory?, updatedAt, userMessageCount? }`
+- `mapSessions` bridges the API response (`ApiSession[]`) to `SessionRow[]`
+- `relativeTime()` formats ISO timestamps to strings like "2h ago"
+- `sourceBadgeVariant()` maps source strings to Badge variants (opencode, claude, pi, nexus)
+- Loading state shows "Loading sessions…"; errors show "Error: {message}"
+- `src/lib/agentSight.ts` and `src/app/api/sessions/route.ts` are **not** modified
 
 ## Command Menu (cmdk)
 
