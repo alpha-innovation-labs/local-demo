@@ -128,3 +128,213 @@
     @apply font-sans;
   }
 }
+
+/* ── cmdk Raycast preset (CSS, no SCSS) ──────────────────────────── */
+/* Maps --gray1…--gray12 to your existing CSS variables. */
+
+[cmdk-root] {
+  max-width: 640px;
+  width: 100%;
+  background: var(--background);
+  border-radius: calc(var(--radius) * 2);
+  padding: 8px 0;
+  font-family: var(--font-sans);
+  box-shadow: 0 0 0 1px var(--border), 0 10px 40px oklch(0 0 0 / 10%);
+  border: 1px solid var(--border);
+  position: relative;
+  outline: none;
+  left: 50%;
+  top: var(--page-top, 50%);
+  transform: translateX(-50%) translateY(-50%);
+}
+
+.dark [cmdk-root] {
+  background: var(--card);
+  border: 0;
+}
+
+.dark [cmdk-root]:after {
+  content: '';
+  background: linear-gradient(
+    to right,
+    var(--border) 20%,
+    var(--border) 40%,
+    var(--muted) 50%,
+    var(--muted) 55%,
+    var(--border) 70%,
+    var(--border) 100%
+  );
+  z-index: -1;
+  position: absolute;
+  border-radius: calc(var(--radius) * 2);
+  top: -1px;
+  left: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  animation: cmdk-shine 3s ease forwards 0.1s;
+  background-size: 200% auto;
+}
+
+.dark [cmdk-root]:before {
+  content: '';
+  z-index: -1;
+  position: absolute;
+  border-radius: calc(var(--radius) * 2);
+  top: -1px;
+  left: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  box-shadow: 0 0 0 1px transparent;
+  animation: cmdk-border 1s linear forwards 0.5s;
+}
+
+[cmdk-root] kbd {
+  font-family: var(--font-sans);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  height: 20px;
+  width: 20px;
+  border-radius: 4px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[cmdk-root] kbd:first-of-type {
+  margin-left: 8px;
+}
+
+[cmdk-input] {
+  font-family: var(--font-sans);
+  border: none;
+  width: 100%;
+  font-size: 15px;
+  padding: 8px 16px;
+  outline: none;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+[cmdk-input]::placeholder {
+  color: var(--muted-foreground);
+}
+
+[cmdk-item] {
+  content-visibility: auto;
+  cursor: pointer;
+  height: 40px;
+  border-radius: calc(var(--radius) * 1.5);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  color: var(--foreground);
+  user-select: none;
+  will-change: background, color;
+  transition: all 150ms ease;
+}
+
+[cmdk-item][data-selected='true'] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+[cmdk-item][data-disabled='true'] {
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+}
+
+[cmdk-item]:active {
+  transition-property: background;
+  background: var(--muted);
+}
+
+[cmdk-item]:first-child {
+  margin-top: 8px;
+}
+
+[cmdk-item] + [cmdk-item] {
+  margin-top: 4px;
+}
+
+[cmdk-list] {
+  padding: 0 8px;
+  height: 393px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block-end: 40px;
+  transition: 100ms ease;
+  transition-property: height;
+  padding-bottom: 40px;
+}
+
+[cmdk-empty] {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+  white-space: pre-wrap;
+  color: var(--muted-foreground);
+}
+
+[cmdk-group-heading] {
+  user-select: none;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+[cmdk-separator] {
+  height: 1px;
+  width: 100%;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+[cmdk-raycast-footer] {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  width: 100%;
+  position: absolute;
+  background: var(--background);
+  bottom: 0;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 calc(var(--radius) * 2) calc(var(--radius) * 2);
+}
+
+/* ── Keyframes ────────────────────────────────────────────────────── */
+@keyframes cmdk-shine {
+  to { background-position: 200% center; opacity: 0; }
+}
+
+@keyframes cmdk-border {
+  to { box-shadow: 0 0 0 1px var(--border); }
+}
+
+@keyframes cmdk-loading {
+  0% { opacity: 0; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(100%); }
+  100% { opacity: 0; transform: translateX(0); }
+}
+
+@keyframes cmdk-dialogIn {
+  0% { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cmdk-dialogOut {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.96); }
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  [cmdk-input] { font-size: 16px; }
+}

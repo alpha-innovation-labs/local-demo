@@ -39,25 +39,13 @@ function relativeTime(iso: string): string {
 }
 
 /**
- * Map a source string to a Tailwind badge variant for visual coding.
- */
-function sourceVariant(source: string): string {
-  switch (source) {
-    case "opencode": return "default"
-    case "claude": return "secondary"
-    case "pi": return "outline"
-    case "nexus": return "destructive"
-    default: return "default"
-  }
-}
-
-/**
  * CommandMenu — a ⌘K command palette that surfaces the table's session
  * data as searchable, filterable items.
  *
  * Receives the same `data` array as the DataTable so both components
  * always stay in sync.
  *
+ * All styling is handled by CSS selectors in globals.css (Raycast preset).
  * Press ⌘K (or Ctrl+K) to open. Type to filter. Arrow keys to navigate.
  */
 export function CommandMenu({ data }: CommandMenuProps) {
@@ -78,7 +66,7 @@ export function CommandMenu({ data }: CommandMenuProps) {
 
   return (
     <>
-      {/* Trigger button visible on the page */}
+      {/* Trigger button — styled with Tailwind (not a cmdk component) */}
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
@@ -88,16 +76,16 @@ export function CommandMenu({ data }: CommandMenuProps) {
         <span className="hidden sm:inline">Quick Search</span>
       </button>
 
-      {/* Dialog overlay */}
+      {/* Dialog overlay — styling via [cmdk-root] selector in globals.css */}
       <Command.Dialog
         open={open}
         onOpenChange={setOpen}
         label="Command Menu"
-        className="fixed left-1/2 top-1/2 z-50 h-[450px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background shadow-2xl"
       >
+        <span className="sr-only">Command Menu</span>
         <Command.Input placeholder="Type a command or search…" autoFocus />
 
-        <Command.List className="max-h-[380px] overflow-y-auto">
+        <Command.List>
           <Command.Empty>No results found.</Command.Empty>
 
           <Command.Group heading="Sessions">
@@ -113,7 +101,6 @@ export function CommandMenu({ data }: CommandMenuProps) {
                 onSelect={(value) => {
                   setOpen(false)
                 }}
-                className="flex items-center justify-between px-3 py-2 cursor-pointer rounded-md"
               >
                 <div className="flex flex-col">
                   <span className="font-medium">{session.title}</span>
@@ -129,11 +116,12 @@ export function CommandMenu({ data }: CommandMenuProps) {
           </Command.Group>
         </Command.List>
 
-        <div className="flex items-center justify-between border-t px-3 py-1.5 text-xs text-muted-foreground">
+        {/* Footer — styled via [cmdk-raycast-footer] selector in globals.css */}
+        <div cmdk-raycast-footer>
           <div className="flex gap-3">
-            <span><kbd className="px-1 rounded bg-muted">⌘K</kbd> Toggle</span>
-            <span><kbd className="px-1 rounded bg-muted">↵</kbd> Select</span>
-            <span><kbd className="px-1 rounded bg-muted">esc</kbd> Close</span>
+            <span><kbd>⌘K</kbd> Toggle</span>
+            <span><kbd>↵</kbd> Select</span>
+            <span><kbd>esc</kbd> Close</span>
           </div>
           <span>{data.length} results</span>
         </div>

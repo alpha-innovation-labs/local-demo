@@ -33,11 +33,6 @@ export async function GET(request: NextRequest) {
   if (cached) {
     console.log(`[sessionCache] HIT key=${cacheKey}`);
     const status = cached.data.error ? 400 : 200;
-    // Fire background refresh (does NOT block the response).
-    queueMicrotask(() => {
-      const fresh = fetchSessions(params);
-      writeCache(cacheKey, fresh);
-    });
     const response = NextResponse.json(cached.data, { status });
     response.headers.set("X-Cache", "HIT");
     return response;

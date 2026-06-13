@@ -2,6 +2,9 @@ import fs from "fs";
 import path from "path";
 import type { SessionsResponse } from "./agentSight";
 
+/** Whether we're in production (stub mode) — skip file caching entirely. */
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 /**
  * File-based cache entry holding a stale response and the timestamp it was cached.
  */
@@ -51,12 +54,27 @@ function cacheFilePath(key: string): string {
 }
 
 /**
- * Read the cache for a given key. Returns the stale entry or undefined.
+ * Get the temporary file path for atomic writes.
+ * Temp files use a .tmp extension so readers never see partial data.
  *
  * @param key - Cache key string
- * @returns The cached entry or undefined if not present / expired.
+ * @returns Absolute path to the temporary cache file
+ */
+function cacheTempPath(key: string): string {
+  const safeName = key.replace(/[&=]/g, "_").replace(/_/g, "-");
+  return path.join(CACHE_DIR, `${safeName}.json.tmp`);
+}
+
+/**
+ * Read the cache for a given key. Returns the stale entry or undefined.
+ *
+ * In production (stub mode), caching is disabled — always returns undefined.
+ *
+ * @param key - Cache key string
+ * @returns The cached entry or undefined if not present / expired / corrupt.
  */
 export function readCache(key: string): CacheEntry | undefined {
+  if (IS_PRODUCTION) return undefined;
   ensureCacheDir();
   const filePath = cacheFilePath(key);
   if (!fs.existsSync(filePath)) return undefined;
@@ -69,21 +87,51 @@ export function readCache(key: string): CacheEntry | undefined {
     }
     return entry;
   } catch {
-    // Corrupt file — remove and return undefined
-    fs.unlinkSync(filePath);
+    // Corrupt or partial file (e.g., from concurrent write) — remove and return undefined
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // File may have been removed by another process — ignore
+    }
     return undefined;
   }
 }
 
 /**
- * Write a response into the cache file.
+ * Write a response into the cache file using an atomic rename pattern.
+ *
+ * In production (stub mode), caching is disabled — this is a no-op.
+ *
+ * In development, writes to a temporary file first, then renames it to
+ * the target path. This prevents readers from seeing partial/truncated
+ * JSON during a write, which causes "Unexpected end of JSON input" errors
+ * on Vercel serverless.
  *
  * @param key - Cache key string
  * @param data - The response to cache
  */
 export function writeCache(key: string, data: SessionsResponse): void {
+  if (IS_PRODUCTION) return; // Stub data is deterministic — no cache needed.
   ensureCacheDir();
   const filePath = cacheFilePath(key);
+  const tempPath = cacheTempPath(key);
   const entry: CacheEntry = { data, timestamp: Date.now() };
-  fs.writeFileSync(filePath, JSON.stringify(entry), "utf8");
+  const serialized = JSON.stringify(entry);
+
+  // Write to temp file first
+  fs.writeFileSync(tempPath, serialized, "utf8");
+
+  // Atomic rename: readers always see either the old complete file or the new one
+  try {
+    fs.renameSync(tempPath, filePath);
+  } catch {
+    // rename may fail on some filesystems (e.g., cross-device mounts)
+    // fall back to direct write and clean up temp file
+    fs.writeFileSync(filePath, serialized, "utf8");
+    try {
+      fs.unlinkSync(tempPath);
+    } catch {
+      // Temp file may have been removed — ignore
+    }
+  }
 }
