@@ -17,6 +17,7 @@ help:
     @echo "  just \033[0;33mstop\033[0m                  \033[0;32mStop the dev server\033[0m"
     @echo "  just \033[0;33mdelete\033[0m                \033[0;32mRemove the PM2 process\033[0m"
     @echo "  just \033[0;33mcheck\033[0m                 \033[0;32mType check, build, and lint\033[0m"
+    @echo "  just \033[0;33mpub\033[0m                  \033[0;32mDeploy to Vercel (production)\033[0m"
     @echo ""
 
 # ============================================================================
@@ -29,4 +30,9 @@ help:
 
 import 'justfiles/verification/check.just'
 
+# ============================================================================
+# Production Deployment Commands
+# ============================================================================
+
 import 'justfiles/development/web.just'
+import 'justfiles/production/vercel.just'
