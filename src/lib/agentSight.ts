@@ -1,4 +1,5 @@
 import { execSync } from "child_process";
+import { generateStubSessions } from "./stubSessions";
 
 /**
  * Represents a single message inside a conversation.
@@ -67,9 +68,70 @@ export type Source = (typeof SOURCES)[number];
  * Query parameters for the sessions API.
  */
 export interface SessionsQueryParams {
+  /** Time window filter (e.g. "24h", "7d", "30m"). */
   since?: string;
+  /** Source name (one of: opencode, claude, pi, nexus). */
   source?: string;
+  /** Whether to include --full flag ("true" or "false"). */
   full?: string;
+  /** Index signature for cache key generation. */
+  [key: string]: string | undefined;
+}
+
+/**
+ * Whether the current runtime is in production (stub/demo mode).
+ * When true, fetchSessions returns deterministic stub data instead
+ * of querying the agent-sight CLI.
+ */
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+/**
+ * Lazy-initialized stub session cache.
+ */
+let stubCache: SessionEntry[] | null = null;
+
+/**
+ * Get or build the deterministic stub session list.
+ */
+function getStubSessions(): SessionEntry[] {
+  if (!stubCache) {
+    stubCache = generateStubSessions();
+  }
+  return stubCache;
+}
+
+/**
+ * Apply source filter and time-window slicing to a session list.
+ *
+ * @param sessions - All sessions (real or stub).
+ * @param params   - Query parameters.
+ * @returns Filtered and sorted sessions.
+ */
+function filterSessions(
+  sessions: SessionEntry[],
+  params: SessionsQueryParams
+): SessionEntry[] {
+  const requestedSource = params.source as Source | undefined;
+  const since = params.since || "24h";
+
+  // Filter by source.
+  let filtered = requestedSource
+    ? sessions.filter((s) => s.source === requestedSource)
+    : sessions;
+
+  // Filter by time window (supports "24h", "7d", "30m").
+  const match = since.match(/^(\d+)([hdm])$/);
+  if (match) {
+    const amount = Number(match[1]);
+    const unit = match[2] as "h" | "d" | "m";
+    const multiplier = unit === "h" ? 3600000 : unit === "d" ? 86400000 : 60000;
+    const cutoff = Date.now() - amount * multiplier;
+    filtered = filtered.filter(
+      (s) => new Date(s.updatedAt ?? s.timestamp ?? Date.now()).getTime() >= cutoff
+    );
+  }
+
+  return filtered;
 }
 
 /**
@@ -107,9 +169,9 @@ function parseOutput(
   const parsed: Record<string, unknown> = JSON.parse(rawOutput);
 
   // Detect format: --full returns 'conversations' key; non-full returns string arrays as values
-  if (Array.isArray((parsed as RawCliResponse).conversations)) {
+  if (Array.isArray((parsed as unknown as RawCliResponse).conversations)) {
     // --full format
-    const conversations = (parsed as RawCliResponse).conversations;
+    const conversations = (parsed as unknown as RawCliResponse).conversations;
     return conversations.map((conv) => ({
       id: conv.sessionId,
       source,
@@ -169,10 +231,8 @@ function querySource(
 }
 
 /**
- * Fetch sessions from agent-sight across one or all sources.
- *
- * Runs all source queries in parallel via Promise.all.
- * Results are flattened and sorted by timestamp (most recent first).
+ * Fetch sessions — real agent-sight queries in dev, deterministic
+ * stub data in production (when NODE_ENV=production).
  *
  * @param params - Query parameters (since, source, full)
  * @returns SessionsResponse with sorted session entries
@@ -180,6 +240,14 @@ function querySource(
 export function fetchSessions(
   params: SessionsQueryParams
 ): SessionsResponse {
+  // Production: return stub data (agent-sight unavailable).
+  if (IS_PRODUCTION) {
+    const all = getStubSessions();
+    const filtered = filterSessions(all, params);
+    return { sessions: filtered };
+  }
+
+  // Development: query agent-sight CLI.
   const since = params.since || "24h";
   const full = params.full === "true";
   const requestedSource = params.source as Source | undefined;

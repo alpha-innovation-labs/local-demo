@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSessions, type SessionsQueryParams } from "@/lib/agentSight";
+import { buildCacheKey, readCache, writeCache } from "@/lib/sessionCache";
 
 /**
  * GET /api/sessions
  *
  * Query agent-sight for conversation history and return session titles.
+ * Uses in-memory stale-while-revalidate caching:
+ *   1. Returns the cached response immediately (may be stale).
+ *   2. Fetches fresh data in the background and updates the cache.
  *
  * Query Parameters:
  *   - since  — Time window (e.g. "24h", "7d", "30m"). Default: "24h"
@@ -22,9 +26,26 @@ export async function GET(request: NextRequest) {
     full: searchParams.get("full") || undefined,
   };
 
+  const cacheKey = buildCacheKey(params);
+  const cached = readCache(cacheKey);
+
+  // Return stale cache immediately if available.
+  if (cached) {
+    const status = cached.data.error ? 400 : 200;
+    // Fire-and-forget background refresh.
+    const fresh = fetchSessions(params);
+    writeCache(cacheKey, fresh);
+    const response = NextResponse.json(cached.data, { status });
+    response.headers.set("X-Cache", "HIT");
+    return response;
+  }
+
+  // No cache — fetch fresh data.
   const result = fetchSessions(params);
+  writeCache(cacheKey, result);
 
   const status = result.error ? 400 : 200;
-
-  return NextResponse.json(result, { status });
+  const response = NextResponse.json(result, { status });
+  response.headers.set("X-Cache", "MISS");
+  return response;
 }

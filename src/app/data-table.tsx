@@ -88,12 +88,14 @@ export function DataTable<TData, TValue>({
           className="max-w-sm"
         />
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <Button variant="outline" size="sm" className="ml-auto h-8">
-              <Settings2 className="mr-2 h-4 w-4" />
-              View
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={(triggerProps) => (
+              <Button variant="outline" size="sm" className="ml-auto h-8" {...triggerProps}>
+                <Settings2 className="mr-2 h-4 w-4" />
+                View
+              </Button>
+            )}
+          />
           <DropdownMenuContent align="end" className="w-[150px]">
             <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
             <DropdownMenuSeparator />
