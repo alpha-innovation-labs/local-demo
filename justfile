@@ -16,10 +16,17 @@ help:
     @echo "  just \033[0;33mdev\033[0m                    \033[0;32mStart Next.js dev server (PM2)\033[0m"
     @echo "  just \033[0;33mstop\033[0m                  \033[0;32mStop the dev server\033[0m"
     @echo "  just \033[0;33mdelete\033[0m                \033[0;32mRemove the PM2 process\033[0m"
+    @echo "  just \033[0;33mcheck\033[0m                 \033[0;32mType check, build, and lint\033[0m"
     @echo ""
 
 # ============================================================================
 # Development Commands
 # ============================================================================
+
+# ============================================================================
+# Verification Commands
+# ============================================================================
+
+import 'justfiles/verification/check.just'
 
 import 'justfiles/development/web.just'
