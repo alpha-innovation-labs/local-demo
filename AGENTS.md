@@ -8,6 +8,7 @@ A minimal Next.js application scaffolded with `create-next-app`, configured with
 |-------|-----------|
 | Framework | Next.js 16.2 (App Router, TypeScript) |
 | UI | React 19, Tailwind CSS v4 (via `@tailwindcss/postcss`) |
+| Cmd Palette | [cmdk](https://github.com/dip/cmdk) v1.1.1 |
 | Fonts | Geist Sans + Geist Mono |
 | Process Mgmt | PM2 (named `demo` process) |
 | CLI | `just` (modular recipe files) |
@@ -47,6 +48,8 @@ just delete     # Remove the PM2 process
 - Tailwind CSS v4 requires no `tailwind.config.js` — configuration is done inline via CSS.
 - The default landing page is unmodified from `create-next-app`.
 - The server runs on `http://localhost:3000`.
+- Press **⌘K** (or **Ctrl+K** on Windows/Linux) to open the command menu.
+- The command menu shows all table users, searchable by name, email, role, or balance.
 
 ## Sessions API
 
@@ -93,3 +96,36 @@ curl 'http://localhost:3000/api/sessions?source=invalid'
 - Handles both CLI formats: `--full` returns `{ conversations: [...] }`; non-full returns `{ sessionId: [msgs] }`
 - Sources queried in parallel via `.map()` (no explicit `Promise.all` needed — synchronous CLI calls)
 - Results flattened and sorted by `updatedAt` descending
+
+## Command Menu (cmdk)
+
+An accessible, keyboard-driven command palette integrated into the landing page. Press **⌘K** (or **Ctrl+K**) or click the **⌘K Quick Search** button to open.
+
+### Files Added
+
+| File | Purpose |
+|------|--------|
+| `src/app/command-menu.tsx` | `CommandMenu` component — `Command.Dialog` with `Command.Input` and `Command.List` showing all 12 users |
+| `src/app/page.tsx` | Updated to import and render `CommandMenu` in the page header |
+
+### Features
+
+- **Keyboard shortcut**: `Cmd+K` / `Ctrl+K` toggles the menu
+- **Searchable**: Filters by name (default), email, role, status, and balance via `keywords` prop
+- **Grouped**: All users rendered in a single `Command.Group`
+- **Accessible**: Labelled dialog with ARIA attributes, keyboard navigation (arrow keys, Enter, Escape)
+- **Footer**: Shows keyboard shortcuts and result count
+
+### Usage
+
+```bash
+# Open the landing page and press Cmd+K (or Ctrl+K)
+curl 'http://localhost:3000'
+```
+
+### Key Implementation Details
+
+- Uses `Command.Dialog` (Radix UI Dialog composition) for overlay/portal behavior
+- Each `Command.Item` gets a unique `value` (name) and `keywords` (email, role, status, balance) for broad matching
+- `open` state controlled by `useState` + `useEffect` keydown listener
+- Stub user data duplicated from `page.tsx` to avoid prop-drilling; both files share the `User` interface
