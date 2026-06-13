@@ -1,5 +1,6 @@
 import { columns } from "./columns"
 import { DataTable } from "./data-table"
+import { CommandMenu } from "./command-menu"
 
 interface User {
   id: string
@@ -28,7 +29,10 @@ const stubUsers: User[] = [
 export default function Home() {
   return (
     <div className="container mx-auto py-10">
-      <h2 className="text-2xl font-bold tracking-tight mb-6">Users</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold tracking-tight">Users</h2>
+        <CommandMenu />
+      </div>
       <DataTable columns={columns} data={stubUsers} />
     </div>
   )
