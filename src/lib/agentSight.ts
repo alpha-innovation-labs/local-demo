@@ -1,20 +1,37 @@
 import { execSync } from "child_process";
 
 /**
- * Represents a single message in a session.
+ * Represents a single message inside a conversation.
  */
-export interface SessionMessage {
-  role?: string;
-  content?: string;
-  [key: string]: unknown;
+export interface ConversationMessage {
+  content: string;
+  createdAt: string;
+  messageId: string;
 }
 
 /**
- * Represents a full conversation object returned by --full.
+ * Raw conversation object returned by agent-sight --full.
  */
-export interface FullMessage extends SessionMessage {
-  role: string;
-  content: string;
+export interface RawConversation {
+  createdAt: string;
+  directory: string | null;
+  messages: ConversationMessage[];
+  sessionId: string;
+  title: string;
+  updatedAt: string;
+  userMessageCount: number;
+}
+
+/**
+ * Raw CLI response wrapper.
+ */
+export interface RawCliResponse {
+  conversation_count: number;
+  conversations: RawConversation[];
+  directory: string | null;
+  message_count: number;
+  since: string;
+  source: string;
 }
 
 /**
@@ -24,7 +41,11 @@ export interface SessionEntry {
   id: string;
   source: string;
   title: string;
-  messages: string[] | FullMessage[];
+  directory?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  userMessageCount?: number;
+  messages: ConversationMessage[];
   timestamp: string;
 }
 
@@ -55,7 +76,7 @@ export interface SessionsQueryParams {
  * Build the agent-sight CLI command for querying sessions.
  *
  * @param source - One of opencode, claude, pi, nexus
- * @param since  - Time window (e.g. "24h", "7d")
+ * @param since  - Time window (e.g. "24h", "7d", "30m")
  * @param full   - Whether to include --full flag
  * @returns The CLI command as a string
  */
@@ -71,41 +92,55 @@ function buildQueryCommand(
 /**
  * Parse raw agent-sight CLI output into session entries.
  *
- * The CLI returns JSON keyed by session ID with message arrays per session.
- * This function extracts the first message as the title and attaches metadata.
+ * Two output formats:
+ *   --full  : { conversation_count, conversations: [{ sessionId, title, createdAt, updatedAt, directory, messages, userMessageCount }] }
+ *   (no --full): { sessionId: [msg1, msg2, ...] } — keyed by session ID with string message arrays
  *
  * @param rawOutput - Raw CLI stdout as a string
  * @param source    - The source name for this batch
- * @param full      - Whether --full was used (structured objects vs strings)
  * @returns Array of SessionEntry objects
  */
 function parseOutput(
   rawOutput: string,
-  source: Source,
-  full: boolean
+  source: Source
 ): SessionEntry[] {
-  const parsed = JSON.parse(rawOutput);
+  const parsed: Record<string, unknown> = JSON.parse(rawOutput);
+
+  // Detect format: --full returns 'conversations' key; non-full returns string arrays as values
+  if (Array.isArray((parsed as RawCliResponse).conversations)) {
+    // --full format
+    const conversations = (parsed as RawCliResponse).conversations;
+    return conversations.map((conv) => ({
+      id: conv.sessionId,
+      source,
+      title: conv.title,
+      directory: conv.directory || undefined,
+      createdAt: conv.createdAt,
+      updatedAt: conv.updatedAt,
+      userMessageCount: conv.userMessageCount,
+      messages: conv.messages,
+      timestamp: conv.updatedAt,
+    }));
+  }
+
+  // Non-full format: { sessionId: [msg1, msg2, ...] }
   const entries: SessionEntry[] = [];
-
   for (const [id, messages] of Object.entries(parsed)) {
-    const msgArray = messages as string[] | FullMessage[];
-    const firstMsg = msgArray[0];
-
-    // With --full, firstMsg is an object; without, it's a string.
-    const title =
-      typeof firstMsg === "string"
-        ? firstMsg.substring(0, 200) || "(empty)"
-        : (firstMsg.content?.substring(0, 200) || "(empty)");
-
+    const msgArray = messages as string[] | undefined;
+    if (!Array.isArray(msgArray)) continue;
+    const firstMsg = msgArray[0] || "(empty)";
     entries.push({
       id,
       source,
-      title,
-      messages: msgArray,
+      title: firstMsg.substring(0, 200),
+      messages: msgArray.map((content) => ({
+        content,
+        createdAt: "",
+        messageId: "",
+      })),
       timestamp: new Date().toISOString(),
     });
   }
-
   return entries;
 }
 
@@ -123,8 +158,14 @@ function querySource(
   full: boolean
 ): SessionEntry[] {
   const command = buildQueryCommand(source, since, full);
-  const output = execSync(command, { encoding: "utf8" });
-  return parseOutput(output, source, full);
+  const raw = execSync(command, { encoding: "utf8", maxBuffer: 50 * 1024 * 1024 });
+  // Strip ANSI escape codes and other control chars that break JSON parsing
+  const cleaned = raw.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/[\x00-\x1f\x7f]/g, (c) => {
+    // Preserve newlines and tabs
+    if (c === "\n" || c === "\t" || c === "\r") return c;
+    return "";
+  });
+  return parseOutput(cleaned, source);
 }
 
 /**

@@ -1,65 +1,35 @@
-import Image from "next/image";
+import { columns } from "./columns"
+import { DataTable } from "./data-table"
+
+interface User {
+  id: string
+  name: string
+  email: string
+  role: string
+  status: "Active" | "Inactive" | "Pending"
+  balance: string
+}
+
+const stubUsers: User[] = [
+  { id: "728ed52f", name: "Alice Johnson", email: "alice@example.com", role: "Admin", status: "Active", balance: "$1,200.00" },
+  { id: "489e1d42", name: "Bob Smith", email: "bob@example.com", role: "Editor", status: "Active", balance: "$850.50" },
+  { id: "a1b2c3d4", name: "Carol White", email: "carol@example.com", role: "Viewer", status: "Inactive", balance: "$0.00" },
+  { id: "e5f6g7h8", name: "David Brown", email: "david@example.com", role: "Editor", status: "Active", balance: "$2,340.75" },
+  { id: "i9j0k1l2", name: "Eva Martinez", email: "eva@example.com", role: "Admin", status: "Active", balance: "$1,890.25" },
+  { id: "m3n4o5p6", name: "Frank Lee", email: "frank@example.com", role: "Viewer", status: "Pending", balance: "$120.00" },
+  { id: "q7r8s9t0", name: "Grace Kim", email: "grace@example.com", role: "Editor", status: "Active", balance: "$670.30" },
+  { id: "u1v2w3x4", name: "Henry Chen", email: "henry@example.com", role: "Viewer", status: "Inactive", balance: "$0.00" },
+  { id: "y5z6a7b8", name: "Iris Nakamura", email: "iris@example.com", role: "Editor", status: "Active", balance: "$1,450.00" },
+  { id: "c9d0e1f2", name: "Jack Thompson", email: "jack@example.com", role: "Viewer", status: "Pending", balance: "$320.00" },
+  { id: "g3h4i5j6", name: "Karen Patel", email: "karen@example.com", role: "Admin", status: "Active", balance: "$2,100.50" },
+  { id: "k7l8m9n0", name: "Leo Garcia", email: "leo@example.com", role: "Editor", status: "Inactive", balance: "$0.00" },
+]
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="container mx-auto py-10">
+      <h2 className="text-2xl font-bold tracking-tight mb-6">Users</h2>
+      <DataTable columns={columns} data={stubUsers} />
     </div>
-  );
+  )
 }
