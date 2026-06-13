@@ -10,7 +10,7 @@ A minimal Next.js application scaffolded with `create-next-app`, configured with
 | UI | React 19, Tailwind CSS v4 (via `@tailwindcss/postcss`) |
 | Cmd Palette | [cmdk](https://github.com/dip/cmdk) v1.1.1 |
 | Fonts | Geist Sans + Geist Mono |
-| Process Mgmt | PM2 (named `demo` process) |
+| Process Mgmt | PM2 (two processes: `demo-dev`, `demo-prod`) |
 | CLI | `just` (modular recipe files) |
 
 ## Project Structure
@@ -21,8 +21,16 @@ demo/
 │   ├── layout.tsx          # Root layout (Geist fonts, dark mode)
 │   ├── page.tsx            # Landing page (default template)
 │   ├── globals.css         # Global styles (Tailwind imports)
+│   ├── command-menu.tsx    # Cmdk command palette
+│   ├── columns.tsx         # DataTable column definitions
+│   ├── data-table.tsx      # Sortable/filterable table
 │   └── favicon.ico
-├── ecosystem.json          # PM2 config (starts `pnpm run dev`)
+├── src/lib/
+│   ├── agentSight.ts       # CLI wrapper (dev) / stub switch (prod)
+│   ├── stubSessions.ts     # 100 deterministic stub sessions
+│   └── sessionCache.ts     # File-based cache (5 min TTL)
+├── bugs/                   # Bug documentation (001-003)
+├── ecosystem.json          # PM2 config (demo-dev + demo-prod)
 ├── justfile                # Main justfile (imports recipes)
 ├── justfiles/
 │   └── development/
@@ -38,15 +46,21 @@ demo/
 ```bash
 just dev        # Start dev server via PM2
 pm2 status      # Check server status
-pm2 logs demo   # View logs
-just stop       # Stop the PM2 process
-just delete     # Remove the PM2 process
+pm2 logs demo-dev   # View dev logs
+pm2 logs demo-prod  # View prod logs
+just stop       # Stop all PM2 processes
+just delete     # Remove all PM2 processes
 ```
 
 ## Notes
 
 - Tailwind CSS v4 requires no `tailwind.config.js` — configuration is done inline via CSS.
-- The server runs on `http://localhost:3000`.
+- Two servers run simultaneously via PM2 (see `ecosystem.json`):
+  - **Dev** on `http://localhost:3000` — queries agent-sight CLI (real data).
+  - **Prod** on `http://localhost:3002` — returns 100 deterministic stub sessions (no CLI dependency).
+- Switch behavior via `NODE_ENV` (set in `ecosystem.json`):
+  - `"development"` → `fetchSessions()` calls the agent-sight CLI.
+  - `"production"` → `fetchSessions()` returns stub data from `src/lib/stubSessions.ts`.
 - Press **⌘K** (or **Ctrl+K** on Windows/Linux) to open the command menu.
 - The landing page displays live session data from `/api/sessions?full=true` (replaces stub user table).
 - The command menu shows live session data from the DataTable — both share the same data source.
@@ -55,12 +69,17 @@ just delete     # Remove the PM2 process
 
 **`GET /api/sessions`** — Query `agent-sight` CLI for conversation history across all 4 sources (opencode, claude, pi, nexus) and return session titles.
 
+When `NODE_ENV=production` (set in `ecosystem.json`), the API returns 100 deterministic stub sessions instead of querying the CLI — enabling full UI demos without agent-sight installed.
+
 ### Files Added
 
 | File | Purpose |
 |------|--------|
-| `src/lib/agentSight.ts` | CLI wrapper: builds commands, strips ANSI control chars, parses both `--full` and non-full output formats |
+| `src/lib/agentSight.ts` | CLI wrapper: builds commands, strips ANSI control chars, parses both `--full` and non-full output formats; branches on `NODE_ENV` |
+| `src/lib/stubSessions.ts` | 100 deterministic stub sessions (mulberry32 PRNG seeded on "stub-seed-2026"), respects `source`/`since` filters |
+| `src/lib/sessionCache.ts` | File-based stale-while-revalidate cache (5 min TTL) |
 | `src/app/api/sessions/route.ts` | Next.js App Router GET handler exposing the endpoint |
+| `ecosystem.json` | PM2 config — two apps: `demo-dev` (port 3000, dev) and `demo-prod` (port 3002, prod) |
 
 ### Usage
 
@@ -91,10 +110,12 @@ curl 'http://localhost:3000/api/sessions?source=invalid'
 
 ### Key Implementation Details
 
-- `maxBuffer: 50MB` on `execSync` to handle large outputs (e.g. 116 nexus sessions)
-- ANSI escape codes (`\x1b[...m`) stripped before `JSON.parse` to prevent parse errors
+- `NODE_ENV` branching in `fetchSessions()`: dev queries the CLI, prod returns 100 stub sessions
+- Stub sessions use a deterministic PRNG (mulberry32, seed "stub-seed-2026") — reproducible across restarts
+- 100 stub sessions distributed evenly: 25 per source (opencode, claude, pi, nexus)
+- Titles composed from 20 prefixes × 20 suffixes (e.g. "Fix API route on AWS Lambda")
+- CLI: `maxBuffer: 50MB` on `execSync`; ANSI codes stripped before `JSON.parse`
 - Handles both CLI formats: `--full` returns `{ conversations: [...] }`; non-full returns `{ sessionId: [msgs] }`
-- Sources queried in parallel via `.map()` (no explicit `Promise.all` needed — synchronous CLI calls)
 - Results flattened and sorted by `updatedAt` descending
 
 ## Session Table (live data)
@@ -116,7 +137,10 @@ The landing page DataTable now fetches live session data from `/api/sessions?ful
 - `relativeTime()` formats ISO timestamps to strings like "2h ago"
 - `sourceBadgeVariant()` maps source strings to Badge variants (opencode, claude, pi, nexus)
 - Loading state shows "Loading sessions…"; errors show "Error: {message}"
-- `src/lib/agentSight.ts` and `src/app/api/sessions/route.ts` are **not** modified
+- `src/lib/agentSight.ts` branches on `NODE_ENV` (CLI vs stub)
+- `src/lib/stubSessions.ts` generates 100 deterministic sessions
+- `src/lib/sessionCache.ts` provides file-based caching (5 min TTL)
+- `src/app/api/sessions/route.ts` delegates to `fetchSessions()`
 
 ## Command Menu (cmdk)
 
