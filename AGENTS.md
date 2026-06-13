@@ -64,6 +64,7 @@ just delete     # Remove all PM2 processes
 - Press **⌘K** (or **Ctrl+K** on Windows/Linux) to open the command menu.
 - The landing page displays live session data from `/api/sessions?full=true` (replaces stub user table).
 - The command menu shows live session data from the DataTable — both share the same data source.
+- **Vercel deployment**: Production deploys to `demo-tawny-three-26.vercel.app` via `just pub`. The alias is reassigned to the latest deployment URL on each push.
 
 ## Sessions API
 
@@ -118,6 +119,7 @@ curl 'http://localhost:3000/api/sessions?source=invalid'
 - Handles both CLI formats: `--full` returns `{ conversations: [...] }`; non-full returns `{ sessionId: [msgs] }`
 - Results flattened and sorted by `updatedAt` descending
 - **Caching**: File-based stale-while-revalidate in `.cache/sessions/` (5 min TTL). On cache HIT: returns the cached file immediately, fires CLI refresh via `queueMicrotask` (non-blocking). On MISS: runs CLI query, writes result to cache. Response header `X-Cache` is `HIT` or `MISS`.
+- **Production caching disabled**: `sessionCache.readCache()` and `sessionCache.writeCache()` are no-ops when `NODE_ENV=production` — stub data is deterministic, so file I/O is unnecessary and avoids Vercel serverless filesystem errors.
 
 ## Session Table (live data)
 
@@ -140,8 +142,8 @@ The landing page DataTable now fetches live session data from `/api/sessions?ful
 - Loading state shows "Loading sessions…"; errors show "Error: {message}"
 - `src/lib/agentSight.ts` branches on `NODE_ENV` (CLI vs stub)
 - `src/lib/stubSessions.ts` generates 100 deterministic sessions
-- `src/lib/sessionCache.ts` provides file-based caching (5 min TTL, stored in `.cache/sessions/`)
-- `src/app/api/sessions/route.ts` delegates to `fetchSessions()`; HIT branch returns cached file immediately and fires CLI refresh via `queueMicrotask` (non-blocking)
+- `src/lib/sessionCache.ts` provides file-based caching (5 min TTL, stored in `.cache/sessions/`); no-ops in production
+- `src/app/api/sessions/route.ts` delegates to `fetchSessions()`; HIT branch returns cached file immediately (no background refresh in production)
 
 ## Command Menu (cmdk)
 
@@ -178,3 +180,20 @@ curl 'http://localhost:3000'
 - `open` state controlled by `useState` + `useEffect` keydown listener
 - Both DataTable and CommandMenu receive `data` from `page.tsx` — single source of truth, no duplication
 - `relativeTime()` formats ISO timestamps to strings like "2h ago" for display in keywords
+
+## Known Fixes
+
+### Vercel JSON Parse Error (2026-06-13)
+
+**Problem**: Deployed production returned `Error: Failed to execute 'json' on 'Response': Unexpected end of JSON input`.
+
+**Root cause**:
+1. File-based cache (`sessionCache.ts`) had a race condition — concurrent Vercel serverless instances read/write the same cache file simultaneously, producing partial/truncated JSON.
+2. Vercel's serverless environment has a read-only filesystem (except `/tmp`). The `.cache/sessions/` directory creation failed, causing 500 errors.
+
+**Fix**:
+- `sessionCache.ts`: Added `IS_PRODUCTION` flag — `readCache()` and `writeCache()` are no-ops in production (stub data is deterministic, no cache needed).
+- `sessionCache.ts`: Atomic write pattern (write to `.tmp` file, then `rename`) for development.
+- `route.ts`: Removed `queueMicrotask` background refresh — stub data doesn't need refreshing, eliminating a second write window.
+
+**Deployed**: `https://demo-tawny-three-26.vercel.app/` returns valid JSON with 100 stub sessions.
